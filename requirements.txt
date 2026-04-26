@@ -1,0 +1,21 @@
+# ─────────────────────────────────────────────────────────────
+# AI-Based Resume–Job Description Matching System
+# requirements.txt
+# ─────────────────────────────────────────────────────────────
+
+# ── UI Framework ───────────────────────────────────────────────
+streamlit>=1.32.0
+
+# ── PDF Parsing ─────────────────────────────────────────────────
+pdfplumber>=0.10.3         # Primary PDF extractor (best text layout)
+PyPDF2>=3.0.1              # Fallback PDF extractor
+
+# ── NLP & Embeddings ────────────────────────────────────────────
+sentence-transformers>=2.6.1   # Semantic embeddings (all-MiniLM-L6-v2)
+
+# ── ML & Similarity ─────────────────────────────────────────────
+scikit-learn>=1.4.0        # TF-IDF, cosine similarity
+numpy>=1.26.0              # Array operations
+
+# ── Utilities ───────────────────────────────────────────────────
+torch>=2.0.0               # Required by sentence-transformers (CPU build)
