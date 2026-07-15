@@ -2,6 +2,8 @@
 
 **AI-Based Resume–Job Description Matching System**
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-success?style=for-the-badge)](https://kaif-resumematch.streamlit.app)
+
 An intelligent NLP-powered tool that analyzes how well your resume matches a
 job description, giving you a detailed score, skills gap analysis, ATS keyword
 coverage, and actionable improvement suggestions.
