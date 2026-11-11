@@ -1,8 +1,8 @@
-# 🎯 ResumeMatch AI
+# 🎯 ResCheck
 
 **AI-Based Resume–Job Description Matching System**
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-success?style=for-the-badge)](https://kaif-resumematch.streamlit.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-success?style=for-the-badge)](#)
 
 An intelligent NLP-powered tool that analyzes how well your resume matches a
 job description, giving you a detailed score, skills gap analysis, ATS keyword
@@ -27,7 +27,7 @@ coverage, and actionable improvement suggestions.
 ## 🗂️ Project Structure
 
 ```
-resume_matcher/
+ResCheck/
 ├── app.py                  # Streamlit UI (main entry point)
 ├── requirements.txt        # Python dependencies
 ├── README.md
@@ -64,7 +64,7 @@ resume_matcher/
 
 ```bash
 git clone <your-repo-url>
-cd resume_matcher
+cd ResCheck
 ```
 
 ### 3. Create a virtual environment (recommended)

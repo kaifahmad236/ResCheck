@@ -1,5 +1,5 @@
 """
-app.py - Main Streamlit UI for AI-Based Resume–Job Description Matching System
+app.py - Main Streamlit UI for ResCheck: AI-Based Resume–Job Description Matching System
 """
 
 import streamlit as st
@@ -17,7 +17,7 @@ from backend.scorer import ResumeScorer
 # Page Configuration
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="ResumeMatch AI",
+    page_title="ResCheck",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -341,7 +341,7 @@ def score_verdict(score: float) -> tuple[str, str]:
 # ─────────────────────────────────────────────
 st.markdown("""
 <div class="main-header">
-    <div class="main-title">🎯 ResumeMatch AI</div>
+    <div class="main-title">🎯 ResCheck</div>
     <div class="main-subtitle">Intelligent Resume ↔ Job Description Analysis Powered by NLP</div>
 </div>
 """, unsafe_allow_html=True)

@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-# AI-Based Resume–Job Description Matching System
+# ResCheck - AI-Based Resume–Job Description Matching System
 # requirements.txt
 # ─────────────────────────────────────────────────────────────
 
