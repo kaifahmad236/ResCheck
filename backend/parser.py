@@ -2,173 +2,121 @@
 backend/parser.py
 ─────────────────
 Handles PDF resume text extraction and text preprocessing.
-Supports both pdfplumber (preferred) and PyPDF2 as fallback.
+Features robust multi-engine extraction (pdfplumber with automatic PyPDF2 fallback)
+and unified NLP text normalization.
 """
 
-import re
 import io
+import re
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
+from utils.text_cleaner import clean_for_nlp
 
 logger = logging.getLogger(__name__)
 
 
 class ResumeParser:
     """
-    Responsible for:
-    - Extracting raw text from PDF resumes
-    - Cleaning and normalizing text for NLP processing
+    Extracts text from PDF resumes and normalizes text for downstream analysis.
+    Supports primary (pdfplumber) and secondary (PyPDF2) extraction engines.
     """
 
     def __init__(self):
-        self._check_pdf_libraries()
+        self.has_pdfplumber = self._check_module("pdfplumber")
+        self.has_pypdf2 = self._check_module("PyPDF2")
 
-    def _check_pdf_libraries(self):
-        """Check which PDF library is available."""
-        self.use_pdfplumber = False
+        if not self.has_pdfplumber and not self.has_pypdf2:
+            logger.warning("No PDF parser library installed (pdfplumber or PyPDF2).")
+
+    @staticmethod
+    def _check_module(name: str) -> bool:
         try:
-            import pdfplumber
-            self.use_pdfplumber = True
-            logger.info("Using pdfplumber for PDF extraction.")
+            __import__(name)
+            return True
         except ImportError:
-            try:
-                import PyPDF2
-                logger.info("pdfplumber not found. Falling back to PyPDF2.")
-            except ImportError:
-                raise ImportError(
-                    "No PDF library found. Install with: pip install pdfplumber"
-                )
+            return False
 
-    # ──────────────────────────────────────────────────────────────────────
-    # PDF Extraction
-    # ──────────────────────────────────────────────────────────────────────
-
-    def extract_text_from_pdf(self, pdf_source) -> str:
+    def extract_text_from_pdf(self, pdf_source: Any) -> str:
         """
-        Extract all text from a PDF file.
-
-        Args:
-            pdf_source: File path (str), file-like object, or Streamlit UploadedFile
-
-        Returns:
-            Raw extracted text as a string.
+        Extract text from a PDF source (filepath, file-like object, or Streamlit UploadedFile).
+        Uses pdfplumber by default with an automatic fallback to PyPDF2.
         """
-        # Convert Streamlit UploadedFile or file-like to bytes
+        # Convert source to in-memory bytes stream
         if hasattr(pdf_source, "read"):
-            pdf_bytes = pdf_source.read()
-            pdf_source = io.BytesIO(pdf_bytes)
+            content = pdf_source.read()
+            # If Streamlit UploadedFile has a seek, rewind it as well
+            if hasattr(pdf_source, "seek"):
+                try:
+                    pdf_source.seek(0)
+                except Exception:
+                    pass
+            stream = io.BytesIO(content)
         elif isinstance(pdf_source, str):
             with open(pdf_source, "rb") as f:
-                pdf_bytes = f.read()
-            pdf_source = io.BytesIO(pdf_bytes)
-
-        if self.use_pdfplumber:
-            return self._extract_with_pdfplumber(pdf_source)
+                stream = io.BytesIO(f.read())
+        elif isinstance(pdf_source, bytes):
+            stream = io.BytesIO(pdf_source)
         else:
-            return self._extract_with_pypdf2(pdf_source)
+            raise ValueError("Unsupported PDF source type.")
 
-    def _extract_with_pdfplumber(self, pdf_source) -> str:
-        """Extract text using pdfplumber (better formatting preservation)."""
+        extracted_text = ""
+        errors = []
+
+        # Attempt 1: pdfplumber (best layout preservation)
+        if self.has_pdfplumber:
+            try:
+                stream.seek(0)
+                extracted_text = self._extract_with_pdfplumber(stream)
+            except Exception as exc:
+                logger.warning(f"pdfplumber extraction failed: {exc}. Trying fallback...")
+                errors.append(f"pdfplumber: {exc}")
+
+        # Attempt 2: PyPDF2 fallback if needed
+        if not extracted_text.strip() and self.has_pypdf2:
+            try:
+                stream.seek(0)
+                extracted_text = self._extract_with_pypdf2(stream)
+            except Exception as exc:
+                logger.warning(f"PyPDF2 fallback extraction failed: {exc}")
+                errors.append(f"PyPDF2: {exc}")
+
+        if not extracted_text.strip():
+            error_details = "; ".join(errors) if errors else "No text found (scanned or image-based PDF)"
+            raise ValueError(
+                f"Could not extract readable text from PDF. Ensure the file contains selectable text. Details: {error_details}"
+            )
+
+        return extracted_text
+
+    def _extract_with_pdfplumber(self, stream: io.BytesIO) -> str:
         import pdfplumber
 
-        all_text = []
-        try:
-            with pdfplumber.open(pdf_source) as pdf:
-                for page in pdf.pages:
-                    text = page.extract_text()
-                    if text:
-                        all_text.append(text)
-        except Exception as e:
-            logger.error(f"pdfplumber extraction failed: {e}")
-            raise ValueError(f"Failed to read PDF: {e}")
+        pages_text = []
+        with pdfplumber.open(stream) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text and text.strip():
+                    pages_text.append(text)
+        return "\n".join(pages_text)
 
-        if not all_text:
-            raise ValueError("No text could be extracted from the PDF. The file may be image-based or corrupted.")
-
-        return "\n".join(all_text)
-
-    def _extract_with_pypdf2(self, pdf_source) -> str:
-        """Extract text using PyPDF2 (fallback)."""
+    def _extract_with_pypdf2(self, stream: io.BytesIO) -> str:
         import PyPDF2
 
-        all_text = []
-        try:
-            reader = PyPDF2.PdfReader(pdf_source)
-            for page in reader.pages:
-                text = page.extract_text()
-                if text:
-                    all_text.append(text)
-        except Exception as e:
-            logger.error(f"PyPDF2 extraction failed: {e}")
-            raise ValueError(f"Failed to read PDF: {e}")
-
-        if not all_text:
-            raise ValueError("No text could be extracted from the PDF.")
-
-        return "\n".join(all_text)
-
-    # ──────────────────────────────────────────────────────────────────────
-    # Text Cleaning
-    # ──────────────────────────────────────────────────────────────────────
+        pages_text = []
+        reader = PyPDF2.PdfReader(stream)
+        for page in reader.pages:
+            text = page.extract_text()
+            if text and text.strip():
+                pages_text.append(text)
+        return "\n".join(pages_text)
 
     def clean_text(self, text: str) -> str:
+        """Clean and normalize raw resume or JD text via unified cleaner."""
+        return clean_for_nlp(text)
+
+    def extract_sections(self, text: str) -> Dict[str, str]:
         """
-        Clean and normalize text extracted from a resume or job description.
-
-        Steps:
-        1. Decode unicode artifacts
-        2. Remove special characters
-        3. Normalize whitespace
-        4. Remove very short lines (noise)
-
-        Args:
-            text: Raw extracted text
-
-        Returns:
-            Cleaned text string
-        """
-        if not text:
-            return ""
-
-        # Fix common unicode issues
-        text = text.encode("ascii", errors="ignore").decode("ascii")
-
-        # Replace non-breaking spaces and odd whitespace chars
-        text = re.sub(r"[\xa0\u200b\t\r]", " ", text)
-
-        # Remove URLs
-        text = re.sub(r"http\S+|www\.\S+", "", text)
-
-        # Remove email addresses
-        text = re.sub(r"\S+@\S+\.\S+", "", text)
-
-        # Remove phone numbers
-        text = re.sub(r"(\+?\d[\d\s\-().]{7,}\d)", "", text)
-
-        # Remove excessive special characters (keep hyphens, forward slashes, dots, commas)
-        text = re.sub(r"[^\w\s,./\-+#()&]", " ", text)
-
-        # Normalize multiple spaces to single
-        text = re.sub(r"[ ]{2,}", " ", text)
-
-        # Normalize multiple newlines
-        text = re.sub(r"\n{3,}", "\n\n", text)
-
-        # Strip each line and remove very short lines (likely noise)
-        lines = text.split("\n")
-        cleaned_lines = [line.strip() for line in lines if len(line.strip()) > 2]
-
-        return "\n".join(cleaned_lines).strip()
-
-    def extract_sections(self, text: str) -> dict:
-        """
-        Attempt to split resume text into common sections.
-
-        Args:
-            text: Cleaned resume text
-
-        Returns:
-            Dictionary with section names as keys and content as values.
+        Parses text into common resume sections (summary, experience, education, skills, projects).
         """
         sections = {
             "summary": "",
@@ -180,33 +128,35 @@ class ResumeParser:
             "other": "",
         }
 
-        # Patterns to detect common resume section headers
         section_patterns = {
-            "summary": r"(summary|objective|profile|about me|career objective)",
-            "experience": r"(experience|work history|employment|professional background|work experience)",
-            "education": r"(education|academic|qualification|schooling|degree)",
-            "skills": r"(skills|technical skills|core competencies|technologies|expertise|proficiencies)",
-            "projects": r"(projects|portfolio|work samples|achievements)",
-            "certifications": r"(certifications|certificates|licenses|accreditations)",
+            "summary": r"^(?:professional\s+)?(?:summary|profile|about\s+me|career\s+objective)\b",
+            "experience": r"^(?:work\s+)?(?:experience|employment\s+history|professional\s+background)\b",
+            "education": r"^(?:education|academic\s+background|degrees?|qualifications?)\b",
+            "skills": r"^(?:technical\s+)?(?:skills|core\s+competencies|technologies|expertise)\b",
+            "projects": r"^(?:projects|portfolio|personal\s+projects|key\s+projects)\b",
+            "certifications": r"^(?:certifications?|licenses?|credentials?)\b",
         }
 
-        lines = text.split("\n")
         current_section = "other"
+        lines = text.split("\n")
 
         for line in lines:
-            line_lower = line.lower().strip()
+            line_str = line.strip()
+            line_lower = line_str.lower()
 
-            # Check if this line is a section header
-            matched_section = None
-            for section, pattern in section_patterns.items():
-                if re.search(pattern, line_lower) and len(line.strip()) < 60:
-                    matched_section = section
-                    break
+            if not line_str:
+                continue
 
-            if matched_section:
-                current_section = matched_section
-            else:
-                sections[current_section] += line + "\n"
+            # Detect if line is a section heading (< 50 chars, no sentence ending)
+            matched = False
+            if len(line_str) < 50 and not line_str.endswith("."):
+                for sec_key, pattern in section_patterns.items():
+                    if re.search(pattern, line_lower):
+                        current_section = sec_key
+                        matched = True
+                        break
 
-        # Strip extra whitespace from all sections
+            if not matched:
+                sections[current_section] += line_str + "\n"
+
         return {k: v.strip() for k, v in sections.items()}

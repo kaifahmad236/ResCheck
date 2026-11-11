@@ -1,12 +1,8 @@
-# 🎯 ResCheck
+# 🛡️ ResCheck
 
-**AI-Based Resume–Job Description Matching System**
+**AI-Based Resume & Job Description Calibration Engine**
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-success?style=for-the-badge)](#)
-
-An intelligent NLP-powered tool that analyzes how well your resume matches a
-job description, giving you a detailed score, skills gap analysis, ATS keyword
-coverage, and actionable improvement suggestions.
+ResCheck is an NLP-powered platform that analyzes how accurately a resume matches a job description. It delivers a calibrated score, skills gap analysis, ATS keyword verification, and actionable optimization insights.
 
 ---
 
@@ -14,13 +10,13 @@ coverage, and actionable improvement suggestions.
 
 | Feature | Description |
 |---|---|
-| **Match Score (0–100)** | Weighted score combining skills, experience, keywords, education |
-| **Skills Analysis** | Matched ✅, missing ❌, and extra ➕ skills |
-| **ATS Keyword Analysis** | Which JD keywords appear / are missing in your resume |
-| **Experience Alignment** | Compares years required vs years on resume |
-| **Education Check** | Detects degree requirements and verifies against resume |
-| **AI Suggestions** | Personalized, actionable tips to improve your resume |
-| **Visual Dashboard** | Score circle, progress bars, color-coded skill tags |
+| **Calibrated Match Score (0–100)** | Composite weighted score evaluating skills, experience, keywords, and education |
+| **Competency Analysis** | Verified ✅, missing ❌, and peripheral ➕ competencies |
+| **ATS Keyword Coverage** | Evaluates presence of critical ATS domain terms and acronyms |
+| **Experience Verification** | Detects required years vs. candidate experience tenure |
+| **Education Check** | Verifies degree prerequisites against detected academic background |
+| **Actionable Suggestions** | Targeted recommendations for recruiters and job applicants |
+| **Executive Dashboard** | Polished dark SaaS dashboard with score gauges and metric breakdowns |
 
 ---
 
@@ -96,16 +92,16 @@ The app will open locally in your browser.
 
 ## 📋 How to Use
 
-1. **Upload Resume**: Click the upload area and select your PDF resume.
-2. **Paste Job Description**: Copy the full JD text into the text box.
-3. **Click "Analyze Match"**: Wait a few seconds for the NLP analysis.
+1. **Upload Resume**: Click the upload box and select your PDF resume.
+2. **Paste Job Description**: Paste the target job description into the text area.
+3. **Click "Run ResCheck Analysis"**: The NLP matching pipeline will process both documents.
 4. **Review Results**:
-   - **Overall Score** – your match percentage with a verdict
-   - **Score Breakdown** – per-category progress bars
-   - **Skills Analysis** – matched, missing, and extra skills
-   - **ATS Keywords** – coverage of critical JD keywords
-   - **Experience & Education** – alignment with JD requirements
-   - **AI Suggestions** – specific steps to improve your resume
+   - **Match Calibration** – Composite match score and verdict badge
+   - **Score Dimensions** – Weighted progress meters across all evaluation criteria
+   - **Competency Evaluation** – Verified, missing, and peripheral skills
+   - **ATS Keyword Verification** – Coverage of critical JD keywords
+   - **Background & Credentials** – Experience tenure and education verification
+   - **Targeted Recommendations** – Prioritized improvement recommendations
 
 ---
 

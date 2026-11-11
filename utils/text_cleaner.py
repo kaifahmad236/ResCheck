@@ -1,169 +1,113 @@
 """
 utils/text_cleaner.py
 ─────────────────────
-Reusable text normalization and utility functions.
-These are standalone helpers that can be imported anywhere in the project.
+Reusable text normalization and NLP preprocessing utilities for ResCheck.
+Provides unified text cleaning, tokenization, and n-gram extraction.
 """
 
 import re
 import string
-from typing import Optional
+from typing import Optional, Set, List
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Common English stopwords (lightweight, no NLTK dependency)
+# Common English Stopwords (Curated & Fast, zero-dependency)
 # ──────────────────────────────────────────────────────────────────────────────
 
-STOPWORDS = {
-    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "up", "about", "into", "through", "during",
-    "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
-    "do", "does", "did", "will", "would", "could", "should", "may", "might",
-    "shall", "can", "this", "that", "these", "those", "i", "we", "you",
-    "he", "she", "it", "they", "me", "him", "her", "us", "them", "my",
-    "your", "his", "its", "our", "their", "what", "which", "who", "whom",
-    "when", "where", "why", "how", "not", "no", "so", "if", "as", "such",
-    "also", "more", "most", "other", "some", "any", "both", "each",
-    "few", "more", "than", "too", "very", "just", "only",
+STOPWORDS: Set[str] = {
+    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",
+    "any", "are", "aren't", "as", "at", "be", "because", "been", "before", "being",
+    "below", "between", "both", "but", "by", "can", "cannot", "could", "couldn't",
+    "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down", "during",
+    "each", "few", "for", "from", "further", "had", "hadn't", "has", "hasn't",
+    "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here",
+    "here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i",
+    "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it",
+    "it's", "its", "itself", "let's", "me", "more", "most", "mustn't", "my",
+    "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or",
+    "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same",
+    "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so",
+    "some", "such", "than", "that", "that's", "the", "their", "theirs", "them",
+    "themselves", "then", "there", "there's", "these", "they", "they'd", "they'll",
+    "they're", "they've", "this", "those", "through", "to", "too", "under",
+    "until", "up", "very", "was", "wasn't", "we", "we'd", "we'll", "we're",
+    "we've", "were", "weren't", "what", "what's", "when", "when's", "where",
+    "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with",
+    "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've",
+    "your", "yours", "yourself", "yourselves", "also", "just"
 }
 
 
 def normalize_whitespace(text: str) -> str:
-    """Replace multiple spaces/tabs/newlines with single space."""
+    """Replace multiple spaces, tabs, and newlines with a single space."""
     return re.sub(r"\s+", " ", text).strip()
 
 
-def remove_stopwords(text: str) -> str:
-    """Remove common English stopwords from text."""
-    words = text.lower().split()
-    filtered = [w for w in words if w not in STOPWORDS]
-    return " ".join(filtered)
-
-
-def remove_punctuation(text: str, keep: str = "") -> str:
+def clean_for_nlp(text: str) -> str:
     """
-    Remove punctuation from text.
-
-    Args:
-        text: Input text.
-        keep: String of punctuation characters to preserve. E.g., keep="+-#"
-
-    Returns:
-        Text with punctuation removed (except kept chars).
+    Unified text cleaning pipeline for both resumes and job descriptions.
+    - Decodes ASCII artifacts safely
+    - Strips URLs, emails, phone numbers
+    - Normalizes special characters and punctuation
+    - Preserves meaningful technical symbols (+, #, -, ., /)
+    - Normalizes whitespace and drops noisy short lines
     """
-    to_remove = "".join(c for c in string.punctuation if c not in keep)
-    translator = str.maketrans("", "", to_remove)
-    return text.translate(translator)
+    if not text:
+        return ""
+
+    # Decode unicode artifacts to nearest ascii equivalent
+    cleaned = text.encode("ascii", errors="ignore").decode("ascii")
+
+    # Replace invisible and non-standard spacing
+    cleaned = re.sub(r"[\xa0\u200b\t\r]", " ", cleaned)
+
+    # Strip URLs
+    cleaned = re.sub(r"https?://\S+|www\.\S+", " ", cleaned)
+
+    # Strip emails
+    cleaned = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", " ", cleaned)
+
+    # Strip phone numbers
+    cleaned = re.sub(r"(\+?\d[\d\s\-().]{7,}\d)", " ", cleaned)
+
+    # Retain characters common in skills: +, #, -, ., /, (), &, comma
+    cleaned = re.sub(r"[^\w\s,./\-+#()&]", " ", cleaned)
+
+    # Consolidate multiple spaces
+    cleaned = re.sub(r"[ ]{2,}", " ", cleaned)
+
+    # Consolidate excessive newlines
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+
+    # Filter out empty or ultra-short noisy lines
+    lines = [line.strip() for line in cleaned.split("\n") if len(line.strip()) > 2]
+    return "\n".join(lines).strip()
 
 
-def tokenize(text: str) -> list[str]:
+def tokenize(text: str, remove_stop: bool = True) -> List[str]:
     """
-    Simple word tokenizer.
-
-    Args:
-        text: Input text.
-
-    Returns:
-        List of lowercase tokens (no punctuation, no stopwords).
+    Extract lowercased alphanumeric tokens from text.
+    Optionally filters common stopwords.
     """
-    text = text.lower()
-    text = remove_punctuation(text, keep="-")
-    tokens = text.split()
-    return [t for t in tokens if len(t) > 1 and t not in STOPWORDS]
+    text_lower = text.lower()
+    # Extract words or technical tokens (e.g. c++, python, ci/cd)
+    raw_tokens = re.findall(r"\b[a-z0-9][a-z0-9+#./-]*\b", text_lower)
+    if remove_stop:
+        return [t for t in raw_tokens if len(t) > 1 and t not in STOPWORDS]
+    return [t for t in raw_tokens if len(t) > 1]
 
 
-def extract_bigrams(tokens: list[str]) -> list[str]:
-    """
-    Generate bigrams from a token list.
-
-    Args:
-        tokens: List of word tokens.
-
-    Returns:
-        List of 'word1 word2' bigram strings.
-    """
-    return [f"{tokens[i]} {tokens[i+1]}" for i in range(len(tokens) - 1)]
+def extract_ngrams(tokens: List[str], n: int = 2) -> List[str]:
+    """Generate n-grams from a list of tokens."""
+    if len(tokens) < n:
+        return []
+    return [" ".join(tokens[i : i + n]) for i in range(len(tokens) - n + 1)]
 
 
 def truncate_text(text: str, max_chars: int = 5000) -> str:
-    """
-    Truncate text to a maximum number of characters, ending at a word boundary.
-
-    Args:
-        text: Input text.
-        max_chars: Maximum character limit.
-
-    Returns:
-        Truncated text.
-    """
+    """Truncate text safely at a word boundary."""
     if len(text) <= max_chars:
         return text
-
-    # Find the last space before the limit
     truncated = text[:max_chars]
     last_space = truncated.rfind(" ")
-    return truncated[:last_space].strip() + "…" if last_space > 0 else truncated.strip()
-
-
-def clean_for_display(text: str, max_lines: int = 50) -> str:
-    """
-    Prepare text for display in UI (trim long texts, clean visual noise).
-
-    Args:
-        text: Input text.
-        max_lines: Maximum number of lines to return.
-
-    Returns:
-        Display-ready text string.
-    """
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
-    return "\n".join(lines[:max_lines])
-
-
-def highlight_keywords(text: str, keywords: list[str], tag: str = "**") -> str:
-    """
-    Wrap occurrences of keywords in text with a given tag (e.g., Markdown bold).
-
-    Args:
-        text: Input text.
-        keywords: List of keywords to highlight.
-        tag: Wrapping tag (default: Markdown bold '**').
-
-    Returns:
-        Text with keywords highlighted.
-    """
-    for kw in sorted(keywords, key=len, reverse=True):  # Longer first to avoid partial wrapping
-        pattern = re.compile(re.escape(kw), re.IGNORECASE)
-        text = pattern.sub(f"{tag}{kw}{tag}", text)
-    return text
-
-
-def count_words(text: str) -> int:
-    """Return word count of text."""
-    return len(text.split())
-
-
-def extract_email(text: str) -> Optional[str]:
-    """Extract the first email address found in text."""
-    match = re.search(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", text)
-    return match.group(0) if match else None
-
-
-def extract_phone(text: str) -> Optional[str]:
-    """Extract the first phone number found in text."""
-    match = re.search(r"(\+?\d[\d\s\-().]{7,}\d)", text)
-    return match.group(0).strip() if match else None
-
-
-def split_into_sentences(text: str) -> list[str]:
-    """
-    Simple sentence splitter using punctuation.
-
-    Args:
-        text: Input text.
-
-    Returns:
-        List of sentences.
-    """
-    sentences = re.split(r"(?<=[.!?])\s+", text)
-    return [s.strip() for s in sentences if len(s.strip()) > 10]
+    return (truncated[:last_space].strip() + "...") if last_space > 0 else truncated.strip()
