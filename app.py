@@ -4,7 +4,31 @@ app.py - Main Streamlit UI for ResCheck: AI-Based Resume & Job Description Match
 
 import os
 import sys
+
+# Configure clean Streamlit runtime environment (suppress network URL and inspection overhead)
+os.environ.setdefault("STREAMLIT_SERVER_ADDRESS", "localhost")
+os.environ.setdefault("STREAMLIT_BROWSER_GATHER_USAGE_STATS", "false")
+os.environ.setdefault("STREAMLIT_SERVER_FILE_WATCHER_TYPE", "none")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
+import time
 import streamlit as st
+
+# Direct execution handler: runs clean streamlit when invoked with `python app.py`
+if __name__ == "__main__" and hasattr(st, "runtime") and not st.runtime.exists():
+    from streamlit.web import cli as stcli
+
+    sys.argv = [
+        "streamlit",
+        "run",
+        __file__,
+        "--server.address=localhost",
+        "--server.fileWatcherType=none",
+        "--browser.gatherUsageStats=false",
+        "--server.headless=true",
+    ]
+    sys.exit(stcli.main())
 
 # Ensure project root is in system path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -449,6 +473,7 @@ if analyze_btn:
     else:
         with st.spinner("Analyzing document semantics, skills, and ATS alignment..."):
             try:
+                t_start = time.perf_counter()
                 parser = get_parser()
                 matcher = get_matcher()
                 scorer = get_scorer()
@@ -465,8 +490,23 @@ if analyze_btn:
                 score_data = scorer.compute_score(resume_clean, jd_clean, match_data)
                 final_score = score_data["final_score"]
                 sc_class, verdict, verdict_badge = score_style(final_score)
+                latency_ms = (time.perf_counter() - t_start) * 1000
+                resume_words = len(resume_clean.split())
+                jd_words = len(jd_clean.split())
 
                 st.success("Verification complete.")
+                
+                # Real-Time Telemetry Bar (Live Measured Metrics)
+                st.markdown(
+                    f"""
+                    <div style='display:flex; justify-content:space-between; align-items:center; background:rgba(30,41,59,0.5); padding:0.45rem 1rem; border-radius:8px; font-size:0.8rem; color:#94A3B8; margin-bottom:1.2rem; border:1px solid rgba(255,255,255,0.06);'>
+                        <span>⚡ Latency: <strong style='color:#F1F5F9;'>{latency_ms:.1f} ms</strong></span>
+                        <span>Model: <strong style='color:#60A5FA;'>all-MiniLM-L6-v2</strong></span>
+                        <span>Document Scope: <strong style='color:#CBD5E1;'>{resume_words} words (Resume) / {jd_words} words (JD)</strong></span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 st.markdown("<br>", unsafe_allow_html=True)
 
                 # ── Row 1: Overall Match Score & Breakdown ──
@@ -638,6 +678,23 @@ if analyze_btn:
                 # ── Raw Parsed Text Expander ──
                 with st.expander("Inspected Cleaned Resume Stream"):
                     st.text_area("Extracted Text", resume_clean, height=180, disabled=True)
+
+                # ── Production Telemetry & Diagnostics ──
+                with st.expander("📊 Analysis Diagnostics & Telemetry"):
+                    st.markdown("""
+                    <div style='margin-bottom:0.8rem; font-size:0.85rem; color:#94A3B8;'>
+                        Live diagnostic telemetry captured during this specific document evaluation:
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    jd_skills_detected = len(match_data.get("jd_skills", []))
+                    confidence_label = "High" if jd_skills_detected >= 4 else ("Moderate" if jd_skills_detected >= 1 else "Low (Few JD Skills Detected)")
+
+                    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+                    m_col1.metric("Execution Latency", f"{latency_ms:.1f} ms")
+                    m_col2.metric("JD Skills Detected", f"{jd_skills_detected} skills")
+                    m_col3.metric("Candidate Skills", f"{len(match_data.get('resume_skills', []))} skills")
+                    m_col4.metric("JD Signal Strength", confidence_label)
 
             except Exception as exc:
                 st.error(f"Analysis encountered an issue: {str(exc)}")

@@ -52,7 +52,7 @@ class ResumeScorer:
         semantic_sim = float(match_data.get("semantic_similarity", 0.0))
         breakdown["semantic_similarity"] = semantic_sim
 
-        # Weighted aggregate
+        # ── Weighted Aggregate Calculation ──
         raw_score = (
             breakdown["skills_score"] * WEIGHTS["skills"]
             + breakdown["experience_score"] * WEIGHTS["experience"]
@@ -60,9 +60,17 @@ class ResumeScorer:
             + breakdown["education_score"] * WEIGHTS["education"]
         )
 
-        # Contextual semantic bonus (up to 5 percentage points)
-        semantic_bonus = semantic_sim * 5.0
-        final_score = min(100.0, raw_score + semantic_bonus)
+        # ── Domain Alignment Gatekeeper ──
+        # If semantic similarity is low, documents are from completely different domains.
+        # Scale score down proportionally so mismatched roles cannot score high.
+        if semantic_sim < 0.45:
+            # Domain mismatch penalty multiplier (e.g. 0.30 similarity scales score down by ~35%)
+            domain_alignment = max(0.25, (semantic_sim / 0.45) ** 1.3)
+            raw_score = raw_score * domain_alignment
+
+        # Contextual semantic bonus for genuinely high contextual alignment (> 0.65)
+        semantic_bonus = max(0.0, (semantic_sim - 0.60) * 12.0)
+        final_score = min(100.0, max(0.0, raw_score + semantic_bonus))
 
         suggestions = self._generate_suggestions(
             resume_text=resume_text,
@@ -83,20 +91,24 @@ class ResumeScorer:
         matched = len(match_data.get("matched_skills", []))
         missing = len(match_data.get("missing_skills", []))
         total_jd = matched + missing
+        semantic_sim = float(match_data.get("semantic_similarity", 0.0))
 
         if total_jd == 0:
-            return float(match_data.get("semantic_similarity", 0.0)) * 75.0
+            # No technical skills detected in the JD text
+            return round(semantic_sim * 35.0, 1)
 
         base_ratio = matched / total_jd
         score = base_ratio * 100.0
 
-        # Gentle penalty for high volume of missing competencies (capped at 15 points)
-        penalty = min(missing * 1.5, 15.0)
-        # Small boost for each verified match
+        penalty = min(missing * 1.5, 20.0)
         boost = min(matched * 1.0, 10.0)
 
-        adjusted = score - penalty + boost
-        return round(float(max(0.0, min(100.0, adjusted))), 1)
+        adjusted = max(0.0, score - penalty + boost)
+        # Low confidence guard: If total JD skills is very small (<= 2), weight by semantic context
+        if total_jd <= 2:
+            adjusted = adjusted * (0.4 + 0.6 * semantic_sim)
+
+        return round(float(min(100.0, adjusted)), 1)
 
     def _compute_experience_score(self, match_data: dict) -> float:
         """Scores candidate experience relative to JD expectations."""

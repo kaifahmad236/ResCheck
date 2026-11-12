@@ -88,8 +88,10 @@ SKILLS_DB: Set[str] = {
 # Precompile skill regex patterns to ensure high performance and strict boundaries
 _SKILL_PATTERNS: Dict[str, re.Pattern] = {}
 for _skill in SKILLS_DB:
-    # Handle special punctuation in skills (c++, c#, .net, etc.)
-    if any(ch in _skill for ch in "+#.-/"):
+    # Single-letter languages (R, C) require explicit programming context to avoid false positives
+    if _skill in {"r", "c"}:
+        _pattern = r"(?:\b(?:programming in|language|coding in)\s+)?\b" + re.escape(_skill) + r"\b(?:\s+(?:programming|language|developer))?"
+    elif any(ch in _skill for ch in "+#.-/"):
         _pattern = r"(?:\b|(?<=\s))" + re.escape(_skill) + r"(?:\b|(?=[\s,.;:]|$))"
     else:
         _pattern = r"\b" + re.escape(_skill) + r"\b"
@@ -142,8 +144,9 @@ class ResumeMatcher:
             return ResumeMatcher._cached_model
 
         try:
+            import os
+            os.environ.setdefault("HF_HUB_OFFLINE", "1")
             from sentence_transformers import SentenceTransformer
-            # Try offline cache first to avoid hanging on internet retries
             try:
                 model = SentenceTransformer(self.model_name, local_files_only=True)
             except Exception:
