@@ -78,7 +78,7 @@ pip install -r requirements.txt
 ```
 
 > **Note**: The `sentence-transformers` package downloads the `all-MiniLM-L6-v2`
-> model (~80 MB) on first run. Ensure you have an internet connection the first time.
+> model (~80 MB) on first run. Ensure you have an internet connections the first time.
 
 ### 5. Run the app
 
