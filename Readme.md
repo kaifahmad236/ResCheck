@@ -134,7 +134,7 @@ The app will open locally in your browser.
 
 ### Expected Output
 ```
-Overall Score: 62 / 100  →  Good Match
+Overall Score: 62 / 100  →  Good Overall Match
 
 Skills Breakdown:
   ✅ Matched Skills (5):  python, postgresql, docker, django, git
