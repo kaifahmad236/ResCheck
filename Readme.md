@@ -2,7 +2,7 @@
 
 **AI-Based Resume & Job Description Calibration Engine**
 
-ResCheck is an NLP-powered platform that analyzes how accurately a resume matches a job description. It delivers a calibrated score, skills gap analysis, ATS keyword verification, and actionable optimization insights.
+ResCheck is an NLP powered platform that analyzes how accurately a resume matches a job description. It delivers a calibrated score, skills gap analysis, ATS keyword verification, and actionable optimization insights.
 
 ---
 
